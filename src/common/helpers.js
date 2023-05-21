@@ -49,7 +49,14 @@ const errorHandler = async (err, req, res, next) => {
   });
 };
 
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 module.exports = {
   wrapMidd,
   errorHandler,
+  sleep,
 };
