@@ -4,11 +4,10 @@ const moment = require("moment");
 const axios = require("axios");
 const httpStatus = require("http-status");
 const { v4: uuidv4 } = require("uuid");
-const { sleep } = require("./common/helpers");
 
-const maxConcurrentProcesses = 3;
+const maxConcurrentProcesses = process.env.MAX_CONCURRENT || 3;
 
-let ongoingProcesses = 0;
+let concurrentProcesses = 0;
 
 const processQueue = async (req, res) => {
   const message = await doProcessQueue(req);
@@ -25,16 +24,16 @@ const doProcessQueue = async (req) => {
   let logTag = "noProcessId";
 
   try {
-    if (ongoingProcesses >= maxConcurrentProcesses) {
+    if (concurrentProcesses >= maxConcurrentProcesses) {
       return {
         message: "Max concurrent processes reached",
-        ongoingProcesses,
+        concurrentProcesses,
       };
     }
 
-    ongoingProcesses += 1;
+    concurrentProcesses += 1;
 
-    console.log("ongoingProcesses=", ongoingProcesses);
+    console.log("concurrentProcesses=", concurrentProcesses);
 
     const currentDate = moment().format("YYYY-MM-DD HH:mm:ss");
 
@@ -159,7 +158,7 @@ const doProcessQueue = async (req) => {
       message: `An unexpected error occurred`,
     };
   } finally {
-    ongoingProcesses -= 1;
+    concurrentProcesses -= 1;
   }
 };
 
@@ -179,6 +178,29 @@ const updateTaskToPending = async (req, res, task) => {
   };
 };
 
+const addTask = async (req, res) => {
+  const { valid_since, valid_until, url, attempts_limit } = req.body;
+
+  await req.dbClient.query(
+    `insert into tasks (
+      status, -- Status set to 'pending'.
+      valid_since, -- It will be executed from this date and time.
+      valid_until, -- If it fails, it will be retried until this date and time (or until the attempts_limit is reached).
+      url, -- The url to make a POST request to.
+      attempts, -- Attempt counter set to zero.
+      attempts_limit -- Max number of times to attempt the request.
+    ) values (
+      $1,$2,$3,$4,$5,$6
+    )`,
+    ["pending", valid_since, valid_until, url, 0, attempts_limit]
+  );
+
+  return res.status(httpStatus.OK).send({
+    message: "Task added",
+  });
+};
+
 module.exports = {
   processQueue,
+  addTask,
 };
