@@ -11,8 +11,11 @@ You can request the queue processor to get a pending task and execute it by maki
 ## Set up
 
 npm install
+
 cp .env.example .env
+
 Open the .env file and set the Postgres credentials and database name
+
 Create the tasks table using the SQL file in this file /sql/tasks-table.sql
 
 ## Running the app
